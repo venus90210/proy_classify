@@ -33,9 +33,9 @@ Se utilizará una metodología ágil e iterativa, inspirada en CRISP-DM (Cross-I
 |--------------------|----------------------------------------------------------------|---------------------------------------------------|-------------------|
 | Sprint 0: Setup    | Definición, setup de entorno y carga de datos inicial.         | Project Charter finalizado, repositorio y entorno listos. | 1 semana          |
 | Sprint 1: MVP      | Primer modelo base (baseline) con preprocesamiento simple.     | Modelo funcional con performance inicial.         | 2 semanas         |
-| Sprint 2: Feature Eng. | Mejorar el modelo con ingeniería de características avanzada.    | Modelo con métricas de rendimiento mejoradas.     | 2 semanas         |
-| Sprint 3: Tuning   | Optimización de hiperparámetros y evaluación de otros algoritmos. | Versión candidata a producción del modelo.        | 2 semanas         |
-| Sprint 4: Despliegue | Empaquetado del modelo y despliegue en un entorno de pruebas.  | API del modelo desplegada para validación.        | 2 semanas         |
+| Sprint 2: Feature Eng. | Mejorar el modelo con ingeniería de características avanzada.    | Modelo con métricas de rendimiento mejoradas.     | 1 semanas         |
+| Sprint 3: Tuning   | Optimización de hiperparámetros y evaluación de otros algoritmos. | Versión candidata a producción del modelo.        | 1 semanas         |
+| Sprint 4: Despliegue | Empaquetado del modelo y despliegue en un entorno de pruebas.  | API del modelo desplegada para validación.        | 1 semanas         |
 
 El cronograma es una estimación inicial. La naturaleza iterativa del proyecto permite ajustar las prioridades y objetivos de cada sprint según los hallazgos y la retroalimentación recibida.
 
