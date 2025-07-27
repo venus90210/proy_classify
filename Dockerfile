@@ -20,8 +20,9 @@ COPY models /app/models
 
 
 # 5. Expone el puerto en el que se ejecutará la aplicación.
-EXPOSE 8080
+EXPOSE 80
 
 # 6. Comando para ejecutar la aplicación con Uvicorn.
 # Uvicorn buscará el objeto 'app' en el archivo 'main.py' dentro del módulo 'categorizacion'.
 CMD ["uvicorn", "categorizacion.main:app", "--host", "0.0.0.0", "--port", "80"]
+ 
