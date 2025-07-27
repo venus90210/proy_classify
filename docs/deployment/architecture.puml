@@ -1,0 +1,90 @@
+@startuml DiagramaDespliegue
+!theme materia
+title Arquitectura de Despliegue en AWS para Clasificador de Transacciones
+
+' Definición de actores y componentes externos
+actor "Usuario" as user
+cloud "Internet" as internet
+
+' Componentes dentro de la nube de AWS
+cloud "AWS Cloud" {
+
+    ' Servicio de DNS
+    node "Route 53" as route53 {
+      artifact "Registro DNS\napi.dominio.com" as dns
+    }
+
+    ' Repositorio de Contenedores
+    node "Amazon ECR" as ecr {
+      storage "Repositorio" as repo {
+        artifact "Imagen Docker\n(clasificador:v1)" as image
+      }
+    }
+
+   
+    ' Red Virtual Privada (VPC)
+    package "VPC" #LightGreen {
+        ' Balanceador de Carga
+        node "Application\nLoad Balancer" as alb <<loadbalancer>>
+
+        ' Orquestador de Contenedores
+        node "Amazon ECS" as ecs {
+            node "Cluster ECS" as cluster {
+                frame "Servicio ECS" as service {
+                    node "Tarea Fargate 1" as task1 <<fargate>> {
+                        artifact "Contenedor Docker" as container1 {
+                            component "API (app.py)" as api1
+                            artifact "Modelo (.joblib)" as model1
+                            artifact "Vectorizer (.joblib)" as vectorizer1
+                            artifact "Class_name (.joblib)" as class_name1
+                        }
+                    }
+                    node "Tarea Fargate N" as task2 <<fargate>> {
+                        artifact "Contenedor Docker" as container2 {
+                            component "API (app.py)" as api2
+                            artifact "Modelo (.joblib)" as model2
+                            artifact "Vectorizer (.joblib)" as vectorizer2
+                            artifact "Class_name (.joblib)" as class_name2
+                        }
+                    }
+                }
+            }
+        }
+        note right of service
+            - Define el número de tareas deseadas.
+            - Gestiona el despliegue de nuevas versiones.
+            - Se integra con el ALB para el registro de destinos.
+            - Configura el auto-escalado.
+        end note
+
+        ' Grupos de Seguridad
+        package "Grupos de Seguridad" as sg_group {
+            node "SG para ALB" as sg_alb <<securitygroup>>
+            node "SG para Tareas ECS" as sg_ecs <<securitygroup>>
+        }
+    }
+}
+
+' --- Relaciones y Flujos ---
+
+' Flujo de Petición del Usuario
+user -right-> internet
+internet -right-> route53 : 1. Petición DNS para api.dominio.com
+route53 ..> alb : 2. Resuelve a la IP del ALB
+internet --> alb : 3. Petición HTTPS al ALB
+
+' Flujo dentro de la VPC
+alb --> service : 4. Balancea la carga hacia el grupo de destino
+service --> task1 : 5. Enruta a una tarea saludable
+service --> task2 : (si escala)
+
+' Flujo de Despliegue
+service ..> ecr : <<pull>> : Extrae imagen Docker
+
+' Relaciones de Seguridad
+alb -- sg_alb : Protegido por
+task1 -- sg_ecs : Protegido por
+task2 -- sg_ecs : Protegido por
+sg_alb <..> sg_ecs : Permite tráfico (ej. puerto 8080)
+
+@enduml

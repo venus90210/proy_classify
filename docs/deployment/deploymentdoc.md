@@ -3,23 +3,26 @@
 ## Infraestructura
  
 - **Nombre del modelo:** Clasificador de Transacciones
-- **Plataforma de despliegue:** Google Cloud Platform (GCP) - AI Platform / Cloud Run
+- **Plataforma de despliegue:** Amazon Web Services (AWS) - Amazon ECS (Elastic Container Service)
 - **Requisitos técnicos:** 
     - Python 3.9 o superior.
     - Bibliotecas: scikit-learn, pandas, numpy, Flask/FastAPI (para el endpoint de API).
-    - Hardware: Instancia de cómputo estándar (ej. n1-standard-2 en GCP) con al menos 2 vCPU y 4 GB de RAM.
+    - Hardware: Tarea de Fargate con 2 vCPU y 4 GB de RAM.
 - **Requisitos de seguridad:** 
     - Autenticación mediante claves de API o tokens OAuth 2.0 para el acceso al endpoint.
-    - Uso de roles y permisos de IAM (Identity and Access Management) para restringir el acceso a los recursos de la nube.
+    - Uso de roles y permisos de AWS IAM (Identity and Access Management) para restringir el acceso a los recursos de la nube.
     - Gestión de secretos (secrets management) para credenciales y claves de API.
-- **Diagrama de arquitectura:** (Se recomienda incluir un diagrama que muestre el flujo de datos, por ejemplo: Usuario -> API Gateway -> Cloud Function/Cloud Run (con el modelo) -> Base de datos/Almacenamiento)
+- **Diagrama de arquitectura:**
+
+
+![alt text](image-1.png)
 
 ## Código de despliegue
 
 - **Archivo principal:** `app.py` (Contiene la API de Flask/FastAPI para servir el modelo).
 - **Rutas de acceso a los archivos:**
     - `app.py`: El script de la aplicación web.
-    - `models/clasificador_proyectos.joblib`: El modelo entrenado y serializado.
+    - `models/model.joblib`: El modelo entrenado y serializado.
     - `requirements.txt`: Lista de dependencias de Python.
     - `Dockerfile`: Archivo para construir la imagen del contenedor para Cloud Run.
 - **Variables de entorno:**
@@ -30,43 +33,39 @@
 
 - **Instrucciones de instalación:**
     1.  **Prerrequisitos:**
-        - Instalar y configurar [Google Cloud SDK](https://cloud.google.com/sdk/docs/install).
+        - Instalar y configurar [AWS CLI](https://aws.amazon.com/cli/).
         - Instalar [Docker](https://docs.docker.com/get-docker/).
     2.  **Autenticación:**
-        - Autenticarse con gcloud: `gcloud auth login`
-        - Configurar el proyecto: `gcloud config set project [PROJECT_ID]`
-    3.  **Construir y Subir la Imagen del Contenedor:**
-        - Habilitar el servicio de Artifact Registry: `gcloud services enable artifactregistry.googleapis.com`
-        - Crear un repositorio (si no existe): `gcloud artifacts repositories create [REPO_NAME] --repository-format=docker --location=[REGION]`
-        - Construir la imagen de Docker: `docker build -t [REGION]-docker.pkg.dev/[PROJECT_ID]/[REPO_NAME]/clasificador-proyectos:v1 .`
-        - Autenticar Docker con gcloud: `gcloud auth configure-docker [REGION]-docker.pkg.dev`
-        - Subir la imagen al repositorio: `docker push [REGION]-docker.pkg.dev/[PROJECT_ID]/[REPO_NAME]/clasificador-proyectos:v1`
-    4.  **Desplegar en Cloud Run:**
-        - Ejecutar el comando de despliegue. Para permitir el acceso público, se usa `--allow-unauthenticated`.
-          ```bash
-          gcloud run deploy clasificador-proyectos \
-            --image [REGION]-docker.pkg.dev/[PROJECT_ID]/[REPO_NAME]/clasificador-proyectos:v1 \
-            --platform managed \
-            --region [REGION] \
-            --allow-unauthenticated
-          ```
+        - Configurar las credenciales de AWS: `aws configure` (necesitarás un Access Key ID y un Secret Access Key).
+    3.  **Construir y Subir la Imagen del Contenedor a ECR (Elastic Container Registry):**
+        - Crear un repositorio en ECR (si no existe): `aws ecr create-repository --repository-name clasificador-proyectos --region [REGION]`
+        - Autenticar Docker con el registro de ECR: `aws ecr get-login-password --region [REGION] | docker login --username AWS --password-stdin [AWS_ACCOUNT_ID].dkr.ecr.[REGION].amazonaws.com`
+        - Construir la imagen de Docker: `docker build -t clasificador-proyectos .`
+        - Etiquetar la imagen para ECR: `docker tag clasificador-proyectos:latest [AWS_ACCOUNT_ID].dkr.ecr.[REGION].amazonaws.com/clasificador-proyectos:v1`
+        - Subir la imagen al repositorio de ECR: `docker push [AWS_ACCOUNT_ID].dkr.ecr.[REGION].amazonaws.com/clasificador-proyectos:v1`
+    4.  **Desplegar en Amazon ECS (con Fargate):**
+        - **Paso 1: Crear un Cluster de ECS.**
+        - **Paso 2: Crear una Definición de Tarea (Task Definition).**
+        - **Paso 3: Registrar la Definición de Tarea.**
+        - **Paso 4: Crear un Servicio.**
+          - La forma más sencilla es usar la **Consola de AWS** para crear un nuevo servicio dentro del cluster, seleccionando la definición de tarea creada y configurando la red (VPC, subredes) y un balanceador de carga si es necesario.
 
 - **Instrucciones de configuración:**
-    - Las variables de entorno se pueden configurar durante el despliegue usando el flag `--set-env-vars`.
-    - Ejemplo: `--set-env-vars MODEL_PATH="models/clasificador_proyectos.joblib"`
-    - Se pueden ajustar los recursos de la instancia (CPU, memoria) con los flags `--cpu` y `--memory`.
+    - Las variables de entorno se configuran en el archivo `task-definition.json`.
+    - Ejemplo: `"environment": [{ "name": "MODEL_PATH", "value": "models/model.joblib" }]`
+    - Los recursos (CPU, memoria) también se definen en la definición de tarea.
 
 - **Instrucciones de uso:**
     - Una vez desplegado, el servicio tendrá una URL de endpoint.
-    - Para realizar una predicción, se debe enviar una petición POST a la ruta `/predict` con un cuerpo JSON que contenga los datos del proyecto.
+    - Para realizar una predicción, se debe enviar una petición POST a la ruta `/classify` con un cuerpo JSON que contenga los datos del proyecto.
     - Ejemplo usando `curl`:
       ```bash
-      curl -X POST [URL_DEL_SERVICIO]/predict \
-      -H "Content-Type: application/json" \
-      -d '{"titulo": "Nuevo proyecto de IA", "descripcion": "Desarrollo de un sistema de recomendación."}'
+    curl --location 'http://lb-proy-VPN-1189497738.us-east-2.elb.amazonaws.com/classify/' \
+ --header 'Content-Type: application/json' \
+ --data '{ "text": ""}'
       ```
 
 - **Instrucciones de mantenimiento:**
-    - **Actualización del modelo:** Para desplegar una nueva versión del modelo, se debe reemplazar el archivo `.joblib`, construir una nueva imagen de Docker con una nueva etiqueta (ej. `v2`), subirla y volver a desplegar el servicio. Cloud Run gestionará el tráfico hacia la nueva revisión automáticamente.
-    - **Monitoreo y Logs:** Utilizar la suite de operaciones de Google Cloud (Logging y Monitoring) para visualizar los logs de la aplicación, monitorear métricas como la latencia, el número de peticiones y configurar alertas.
-    - **Escalado:** Cloud Run escala automáticamente el número de instancias según el tráfico de entrada. Los límites de escalado (mínimo y máximo de instancias) se pueden configurar en los ajustes del servicio.
+    - **Actualización del modelo:** Para desplegar una nueva versión, construye y sube una nueva imagen de Docker a ECR con una nueva etiqueta (ej. `v2`). Luego, crea una nueva revisión de la Definición de Tarea apuntando a la nueva imagen y actualiza el servicio de ECS para que la utilice. ECS gestionará el despliegue sin tiempo de inactividad.
+    - **Monitoreo y Logs:** Utilizar **Amazon CloudWatch** para visualizar los logs de los contenedores, monitorear métricas como el uso de CPU y memoria, y configurar alarmas.
+    - **Escalado:** El escalado automático se configura en el servicio de ECS, permitiendo ajustar el número de tareas (contenedores) en función de métricas como el uso de CPU o el número de peticiones.
